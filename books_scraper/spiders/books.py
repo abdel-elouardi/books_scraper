@@ -1,3 +1,5 @@
+import re
+
 import scrapy
 
 from books_scraper.items import BookItem
@@ -18,17 +20,11 @@ class BooksSpider(scrapy.Spider):
     Usage :
         scrapy crawl books -O books.csv
         scrapy crawl books -O books.json
-        scrapy crawl books -a category=travel -O travel.csv   (Challenge)
     """
 
     name = "books"
     allowed_domains = ["books.toscrape.com"]
     start_urls = ["https://books.toscrape.com/"]
-
-    def __init__(self, category=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Challenge : filtrer sur une seule catégorie si demandé
-        self.category_filter = category.strip().lower() if category else None
 
     def parse(self, response):
         """Détecte tous les livres de la page catalogue, puis suit
@@ -72,7 +68,9 @@ class BooksSpider(scrapy.Spider):
             yield response.follow(next_page, callback=self.parse)
 
     def parse_book_detail(self, response):
-        """Complète chaque livre avec les informations de sa page de détail."""
+        """Complète chaque livre avec les informations de sa page de détail
+        et nettoie les données brutes avant de retourner l'Item.
+        """
         catalogue_data = response.meta["catalogue_data"]
 
         table_data = {}
@@ -84,20 +82,24 @@ class BooksSpider(scrapy.Spider):
         breadcrumb_links = response.css("ul.breadcrumb li a::text").getall()
         category = breadcrumb_links[-1] if breadcrumb_links else None
 
-        # Challenge : on ignore les livres hors de la catégorie demandée
-        if self.category_filter and (
-            not category or category.strip().lower() != self.category_filter
-        ):
-            return
-
         image_relative = response.css("div.item.active img::attr(src)").get()
         image_url = response.urljoin(image_relative) if image_relative else None
 
         description = response.css("#product_description ~ p::text").get()
+        if description:
+            description = " ".join(description.split())
+
+        # --- Nettoyage des données (section 7 du cahier des charges) ---
+        price_raw = catalogue_data["price"]
+        price = float(re.sub(r"[^\d.]", "", price_raw)) if price_raw else None
+
+        availability_raw = table_data.get("Availability")
+        match = re.search(r"(\d+)", availability_raw) if availability_raw else None
+        number_available = int(match.group(1)) if match else 0
 
         item = BookItem()
         item["title"] = catalogue_data["title"]
-        item["price"] = catalogue_data["price"]
+        item["price"] = price
         item["star_rating"] = catalogue_data["star_rating"]
         item["in_stock"] = catalogue_data["in_stock"]
         item["thumbnail_url"] = catalogue_data["thumbnail_url"]
@@ -105,9 +107,8 @@ class BooksSpider(scrapy.Spider):
 
         item["upc"] = table_data.get("UPC")
         item["description"] = description
-        item["number_available"] = table_data.get("Availability")
+        item["number_available"] = number_available
         item["category"] = category
         item["image_url"] = image_url
-        item["image_urls"] = [image_url] if image_url else []
 
         yield item
