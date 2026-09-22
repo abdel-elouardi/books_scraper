@@ -12,12 +12,3 @@ USER_AGENT = "books_scraper (+https://books.toscrape.com)"
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
-
-ITEM_PIPELINES = {
-    "books_scraper.pipelines.CleaningPipeline": 100,
-    # Bonus 2 : télécharge automatiquement l'image de chaque livre
-    "scrapy.pipelines.images.ImagesPipeline": 200,
-}
-
-# Dossier de stockage des images téléchargées (Bonus 2)
-IMAGES_STORE = "images"
