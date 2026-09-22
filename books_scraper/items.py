@@ -18,7 +18,3 @@ class BookItem(scrapy.Item):
     number_available = scrapy.Field()
     category = scrapy.Field()
     image_url = scrapy.Field()
-
-    # Champs techniques utilisés par ImagesPipeline (Bonus 2)
-    image_urls = scrapy.Field()
-    images = scrapy.Field()
